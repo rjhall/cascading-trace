@@ -1,0 +1,7 @@
+*.swp
+BUILD
+target/
+lib_managed/
+project/boot/
+project/build/target/
+project/plugins/target/
