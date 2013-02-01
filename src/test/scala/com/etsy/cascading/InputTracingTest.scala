@@ -4,18 +4,10 @@ import com.twitter.scalding._
 
 import org.specs._
 
-class InstrumentedMapJob(args : Args) extends Job(args) {
-  val inp = Tsv("input", ('x,'y))
-  val sm = Map(inp.asInstanceOf[Source] -> Tsv("subsample").asInstanceOf[Source])
-  inp.mapTo(('x, 'y) -> 'z){ x : (Int, Int) => x._1 + x._2 }
+class InstrumentedMapJob(args : Args) extends TracingJob(args) {
+  trace(Tsv("input", ('x, 'y)), Tsv("subsample"))
+      .mapTo(('x, 'y) -> 'z){ x : (Int, Int) => x._1 + x._2 }
      .write(Tsv("output"))
-  
-  override def buildFlow(implicit mode : Mode) = {
-    validateSources(mode)
-    // Sources are good, now connect the flow:
-    val fd = FlowInstrumentation(flowDef, sm)
-    mode.newFlowConnector(config).connect(fd)
-  }
 }
 
 class InstrumentedMapTest extends Specification with TupleConversions {
@@ -46,20 +38,12 @@ class InstrumentedMapTest extends Specification with TupleConversions {
 }
 
 
-class InstrumentedGroupByJob(args : Args) extends Job(args) {
-  val source = Tsv("input", ('x, 'y))
-  source.groupBy('x){ _.sum('y -> 'y) }
+class InstrumentedGroupByJob(args : Args) extends TracingJob(args) {
+  trace(Tsv("input", ('x, 'y)), Tsv("foo/input")).groupBy('x){ _.sum('y -> 'y) }
     .filter('x) { x : Int => x < 2 }
     .map('y -> 'y){ y : Double => y.toInt }
     .project('x, 'y)
     .write(Tsv("output"))
-
-  override def buildFlow(implicit mode : Mode) = {
-    validateSources(mode)
-    // Sources are good, now connect the flow:
-    val fd = FlowInstrumentation(flowDef, Map[Source,Source](source -> Tsv("foo/input")))
-    mode.newFlowConnector(config).connect(fd)
-  }
 }
 
 class InstrumentedGroupByTest extends Specification with TupleConversions {
@@ -90,18 +74,11 @@ class InstrumentedGroupByTest extends Specification with TupleConversions {
 }
 
 
-class InstrumentedGroupByNopJob(args : Args) extends Job(args) {
-  val source = Tsv("input", ('x, 'y))
-  source.groupBy('x){ _.reducers(1) }
+class InstrumentedGroupByNopJob(args : Args) extends TracingJob(args) {
+  trace(Tsv("input", ('x, 'y)), Tsv("foo/input"))
+    .groupBy('x){ _.reducers(1) }
     .filter('x) { x : Int => x < 2 }
     .write(Tsv("output"))
-
-  override def buildFlow(implicit mode : Mode) = {
-    validateSources(mode)
-    // Sources are good, now connect the flow:
-    val fd = FlowInstrumentation(flowDef, Map[Source,Source](source -> Tsv("foo/input")))
-    mode.newFlowConnector(config).connect(fd)
-  }
 }
 
 class InstrumentedGroupByNopTest extends Specification with TupleConversions {
@@ -133,19 +110,12 @@ class InstrumentedGroupByNopTest extends Specification with TupleConversions {
   }
 }
 
-class InstrumentedGroupByFoldJob(args : Args) extends Job(args) {
-  val source = Tsv("input", ('x, 'y))
-  source.groupBy('x){ _.foldLeft[Double,Int]('y -> 'y)(0.0){ (a : Double, b : Int) => a + b } }
+class InstrumentedGroupByFoldJob(args : Args) extends TracingJob(args) {
+  trace(Tsv("input", ('x, 'y)), Tsv("foo/input"))
+    .groupBy('x){ _.foldLeft[Double,Int]('y -> 'y)(0.0){ (a : Double, b : Int) => a + b } }
     .filter('x) { x : Int => x < 2 }
     .map('y -> 'y){ y : Double => y.toInt }
     .write(Tsv("output"))
-
-  override def buildFlow(implicit mode : Mode) = {
-    validateSources(mode)
-    // Sources are good, now connect the flow:
-    val fd = FlowInstrumentation(flowDef, Map[Source,Source](source -> Tsv("foo/input")))
-    mode.newFlowConnector(config).connect(fd)
-  }
 }
 
 class InstrumentedGroupByFoldTest extends Specification with TupleConversions {
@@ -175,20 +145,11 @@ class InstrumentedGroupByFoldTest extends Specification with TupleConversions {
   }
 }
 
-class InstrumentedJoinJob(args : Args) extends Job(args) {
-  val source = Tsv("input", ('x, 'y))
-  val source2 = Tsv("input2", ('x, 'z))
-  source.joinWithSmaller('x -> 'x, source2.read)
+class InstrumentedJoinJob(args : Args) extends TracingJob(args) {
+  trace(Tsv("input", ('x, 'y)), Tsv("foo/input"))
+    .joinWithSmaller('x -> 'x, trace(Tsv("input2", ('x, 'z)), Tsv("bar/input2")))
     .project('x, 'y, 'z)
     .write(Tsv("output"))
-
-  override def buildFlow(implicit mode : Mode) = {
-    validateSources(mode)
-    // Sources are good, now connect the flow:
-    val fd = FlowInstrumentation(flowDef, Map[Source,Source](source -> Tsv("foo/input"), 
-                                                     source2 -> Tsv("bar/input2")))
-    mode.newFlowConnector(config).connect(fd)
-  }
 }
 
 class InstrumentedJoinTest extends Specification with TupleConversions {
@@ -225,20 +186,11 @@ class InstrumentedJoinTest extends Specification with TupleConversions {
 }
 
 
-class InstrumentedJoinTinyJob(args : Args) extends Job(args) {
-  val source = Tsv("input", ('x, 'y))
-  val source2 = Tsv("input2", ('x, 'z))
-  source.joinWithTiny('x -> 'x, source2.read)
+class InstrumentedJoinTinyJob(args : Args) extends TracingJob(args) {
+  trace(Tsv("input", ('x, 'y)), Tsv("foo/input"))
+    .joinWithTiny('x -> 'x, trace(Tsv("input2", ('x, 'z)), Tsv("bar/input2")))
     .project('x, 'y, 'z)
     .write(Tsv("output"))
-
-  override def buildFlow(implicit mode : Mode) = {
-    validateSources(mode)
-    // Sources are good, now connect the flow:
-    val fd = FlowInstrumentation(flowDef, Map[Source,Source](source -> Tsv("foo/input"), 
-                                                     source2 -> Tsv("bar/input2")))
-    mode.newFlowConnector(config).connect(fd)
-  }
 }
 
 class InstrumentedJoinTinyTest extends Specification with TupleConversions {
